@@ -21,6 +21,7 @@ procedure FsSetCryptCallback(PCryptProc: TCryptProcW; CryptoNr: integer; Flags: 
 function FsContentGetSupportedField(FieldIndex: integer; FieldName: PAnsiChar; Units: PAnsiChar; maxlen: integer): integer; stdcall;
 function FsContentGetValue(FileName: PAnsiChar; FieldIndex: integer; UnitIndex: integer; FieldValue: Pointer; maxlen: integer; Flags: integer): integer; stdcall;
 function FsExtractCustomIcon(RemoteName: pchar; ExtractFlags: integer; var TheIcon: hicon): integer; stdcall;
+function FsGetPreviewBitmap(RemoteName: pchar; width, height: integer; var ReturnedBitmap: hbitmap): integer; stdcall;
 
 implementation
 
@@ -206,6 +207,12 @@ function FsExtractCustomIcon(RemoteName: pchar; ExtractFlags: integer; var TheIc
 begin
 	SetLastError(ERROR_INVALID_FUNCTION);
 	Result := FS_FILE_NOTSUPPORTED; //Ansi-заглушка
+end;
+
+function FsGetPreviewBitmap(RemoteName: pchar; width, height: integer; var ReturnedBitmap: hbitmap): integer; stdcall;
+begin
+	SetLastError(ERROR_INVALID_FUNCTION);
+	Result := FS_BITMAP_NONE;
 end;
 
 end.
