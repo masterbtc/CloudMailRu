@@ -19,7 +19,7 @@ type
 		ExternalRequestProc: TRequestHandler;
 
 		FileCipher: TFileCipher; //Encryption class
-//		JSONParser: TCloudMailRuJSONParser; //JSON parser
+		//JSONParser: TCloudMailRuJSONParser; //JSON parser
 
 		public_link: WideString; //public_ params is active for public clouds only
 		public_download_token: WideString; //token for public urls, refreshes on request
@@ -58,6 +58,8 @@ type
 		function loginShared(method: integer = CLOUD_AUTH_METHOD_WEB): Boolean;
 
 		function getFileShared(remotePath, localPath: WideString; var resultHash: WideString; LogErrors: Boolean = true): integer; //LogErrors=false => не логируем результат копирования, нужно для запроса descript.ion (которого может не быть)
+		function getFileThumbnailShared(remotePath, localPath: WideString; var resultHash: WideString; LogErrors: Boolean = true): integer; //LogErrors=false => не логируем результат копирования, нужно для запроса descript.ion (которого может не быть)
+		function getFileThumbnailRegular(remotePath, localPath: WideString; var resultHash: WideString; LogErrors: Boolean = true): integer; //LogErrors=false => не логируем результат копирования, нужно для запроса descript.ion (которого может не быть)
 
 		function getPublicLink(): WideString;
 	public
@@ -100,6 +102,9 @@ type
 		function removeDir(Path: WideString): Boolean;
 		function statusFile(Path: WideString; var FileInfo: TCloudMailRuDirListingItem): Boolean;
 		function getFile(remotePath, localPath: WideString; var resultHash: WideString; LogErrors: Boolean = true): integer; //LogErrors=false => не логируем результат копирования, нужно для запроса descript.ion (которого может не быть)
+
+		function getFileThumbnail(remotePath, localPath: WideString; var resultHash: WideString; LogErrors: Boolean = true): integer;
+
 		function putFile(localPath, remotePath: WideString; ConflictMode: WideString = CLOUD_CONFLICT_STRICT; ChunkOverwriteMode: integer = 0): integer;
 		function renameFile(OldName, NewName: WideString): integer; //смена имени без перемещения
 		function moveFile(OldName, ToPath: WideString): integer; //перемещение по дереву каталогов
@@ -295,7 +300,7 @@ begin
 		self.AuthCookie := TIdCookieManager.Create();
 
 		//self.HTTP := TCloudMailRuHTTP.Create(CloudSettings.ConnectionSettings, ExternalProgressProc, ExternalLogProc);
-//		self.JSONParser := TCloudMailRuJSONParser.Create();
+		//self.JSONParser := TCloudMailRuJSONParser.Create();
 
 		if CloudSettings.AccountSettings.encrypt_files_mode <> EncryptModeNone then
 		begin
@@ -349,7 +354,7 @@ begin
 	//self.HTTP.Destroy;
 
 	self.AuthCookie.Destroy;
-//	self.TCloudMailRuJSONParser.Destroy;
+	//self.TCloudMailRuJSONParser.Destroy;
 	if Assigned(InternalHTTPConnection) then
 		InternalHTTPConnection.Destroy;
 
@@ -649,6 +654,64 @@ begin
 	end;
 	if result <> FS_FILE_OK then
 		System.SysUtils.deleteFile(GetUNCFilePath(localPath));
+end;
+
+function TCloudMailRu.getFileThumbnail(remotePath, localPath: WideString; var resultHash: WideString; LogErrors: Boolean): integer;
+begin
+	result := FS_FILE_NOTSUPPORTED;
+	if not(Assigned(self)) then
+		exit; //Проверка на вызов без инициализации
+
+	if self.public_account then
+		result := self.getFileThumbnailShared(remotePath, localPath, resultHash, LogErrors)
+	else
+		result := self.getFileThumbnailRegular(remotePath, localPath, resultHash, LogErrors);
+end;
+
+function TCloudMailRu.getFileThumbnailRegular(remotePath, localPath: WideString; var resultHash: WideString; LogErrors: Boolean): integer;
+var
+	FileStream: TBufferedFileStream;
+	URL, FileName: WideString;
+	MemoryStream: TMemoryStream;
+	ThumbnailsShard: WideString;
+begin
+	result := FS_FILE_NOTSUPPORTED;
+	if not(Assigned(self)) then
+		exit; //Проверка на вызов без инициализации
+	if not self.getShard(ThumbnailsShard, SHARD_TYPE_THUMBNAILS) then //временно так todo
+		exit;
+	if self.crypt_filenames then
+	begin
+		FileName := ExtractUniversalFileName(remotePath);
+		FileName := FileCipher.DecryptFileName(FileName);
+		localPath := ChangePathFileName(localPath, FileName);
+	end;
+
+	try
+		FileStream := TBufferedFileStream.Create(GetUNCFilePath(localPath), fmCreate);
+	except
+		on E: Exception do
+		begin
+			Log(LogLevelError, MSGTYPE_IMPORTANTERROR, E.Message);
+			exit(FS_FILE_WRITEERROR);
+		end;
+	end;
+	//поддержки шифрации для тамбнейлов нет по очевидным причинам
+
+	result := self.HTTP.getFile(ThumbnailsShard + PathToUrl(remotePath, false), FileStream, LogErrors);
+	if ((result in [FS_FILE_OK]) and (EmptyWideStr = resultHash)) then
+		resultHash := cloudHash(FileStream);
+
+	FlushFileBuffers(FileStream.Handle);
+	FileStream.free;
+
+	if not(result in [FS_FILE_OK]) then
+		System.SysUtils.deleteFile(GetUNCFilePath(localPath));
+end;
+
+function TCloudMailRu.getFileThumbnailShared(remotePath, localPath: WideString; var resultHash: WideString; LogErrors: Boolean): integer;
+begin
+
 end;
 
 function TCloudMailRu.getHTTPConnection: TCloudMailRuHTTP;

@@ -2060,7 +2060,29 @@ begin
 	end; //case
 end;
 
-exports FsGetDefRootName, FsInit, FsInitW, FsFindFirst, FsFindFirstW, FsFindNext, FsFindNextW, FsFindClose, FsGetFile, FsGetFileW, FsDisconnect, FsDisconnectW, FsStatusInfo, FsStatusInfoW, FsPutFile, FsPutFileW, FsDeleteFile, FsDeleteFileW, FsMkDir, FsMkDirW, FsRemoveDir, FsRemoveDirW, FsSetCryptCallback, FsSetCryptCallbackW, FsExecuteFileW, FsRenMovFile, FsRenMovFileW, FsGetBackgroundFlags, FsContentGetSupportedField, FsContentGetValue, FsContentGetValueW, FsExtractCustomIcon, FsExtractCustomIconW;
+function FsGetPreviewBitmapW(RemoteName: pchar; width, height: integer; var ReturnedBitmap: hbitmap): integer; stdcall;
+var
+	Cloud: TCloudMailRu;
+	getResult: integer;
+	RemotePath: TRealPath;
+	LocalName: WideString;
+	resultHash: WideString;
+begin
+	Result := FS_BITMAP_NONE;
+	RemotePath := ExtractRealPath(RemoteName);
+	if RemotePath.trashDir or RemotePath.sharedDir or RemotePath.invitesDir then
+		exit;
+	Cloud := ConnectionManager.get(RemotePath.account, getResult);
+	LocalName := GetTmpFileName();
+	getResult := Cloud.getFileThumbnail(WideString(RemotePath.path), LocalName, resultHash);
+	if FS_FILE_OK = getResult then
+	begin
+		ReturnedBitmap := LoadIcon(LocalName);
+		Result := FS_BITMAP_EXTRACTED
+	end;
+end;
+
+exports FsGetDefRootName, FsInit, FsInitW, FsFindFirst, FsFindFirstW, FsFindNext, FsFindNextW, FsFindClose, FsGetFile, FsGetFileW, FsDisconnect, FsDisconnectW, FsStatusInfo, FsStatusInfoW, FsPutFile, FsPutFileW, FsDeleteFile, FsDeleteFileW, FsMkDir, FsMkDirW, FsRemoveDir, FsRemoveDirW, FsSetCryptCallback, FsSetCryptCallbackW, FsExecuteFileW, FsRenMovFile, FsRenMovFileW, FsGetBackgroundFlags, FsContentGetSupportedField, FsContentGetValue, FsContentGetValueW, FsExtractCustomIcon, FsExtractCustomIconW, FsGetPreviewBitmap, FsGetPreviewBitmapW;
 
 begin
 {$IFDEF DEBUG}
